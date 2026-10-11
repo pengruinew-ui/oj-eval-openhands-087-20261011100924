@@ -4,76 +4,122 @@
 
 using namespace std;
 
-// Function to find where the nth ball lands by simulating
+// Function to find where the nth ball lands
 int findFinalPosition(int D, long long n) {
     int num_switches = (1 << (D - 1)) - 1; // Only internal nodes are switches
     
-    // Initialize all switches to 0 (closed)
-    vector<int> switches(num_switches + 1, 0); // 1-indexed
-    
-    // Simulate all balls up to n to find where the nth ball lands
-    int final_position = 0;
-    
-    for (long long ball = 1; ball <= n; ball++) {
-        int current_pos = 1; // Start at root
+    // For small n, use simulation
+    if (n <= 1000000) {
+        vector<int> switches(num_switches + 1, 0); // 1-indexed
+        int final_position = 0;
         
-        // Drop the ball through the tree
-        while (current_pos <= num_switches) {
-            if (switches[current_pos] == 0) {
-                // Switch is closed, open it and go left
-                switches[current_pos] = 1;
-                current_pos = current_pos * 2; // Go left
+        for (long long ball = 1; ball <= n; ball++) {
+            int current_pos = 1;
+            
+            while (current_pos <= num_switches) {
+                if (switches[current_pos] == 0) {
+                    switches[current_pos] = 1;
+                    current_pos = current_pos * 2;
+                } else {
+                    switches[current_pos] = 0;
+                    current_pos = current_pos * 2 + 1;
+                }
+            }
+            
+            final_position = current_pos;
+        }
+        
+        return final_position;
+    } else {
+        // For large n, use mathematical approach
+        int position = 1;
+        long long temp_n = n;
+        
+        for (int level = 1; level < D; level++) {
+            if (temp_n % 2 == 1) {
+                position = position * 2 + 1;
+                temp_n = (temp_n + 1) / 2;
             } else {
-                // Switch is open, close it and go right
-                switches[current_pos] = 0;
-                current_pos = current_pos * 2 + 1; // Go right
+                position = position * 2;
+                temp_n = temp_n / 2;
             }
         }
         
-        // Ball has reached a leaf
-        final_position = current_pos;
+        return position;
     }
-    
-    return final_position;
 }
 
-// Function to simulate the ball dropping process and compute leaf states
+// Function to compute the final state of all leaf nodes
 vector<int> computeLeafStates(int D, long long n) {
-    int num_switches = (1 << (D - 1)) - 1; // Only internal nodes are switches
     int num_leaves = 1 << (D - 1); // 2^(D-1)
+    vector<int> leaf_states(num_leaves, 0);
     
-    // Initialize all switches to 0 (closed)
-    vector<int> switches(num_switches + 1, 0); // 1-indexed
-    vector<int> leaf_counts(num_leaves, 0);
-    
-    // Simulate each ball
-    for (long long ball = 1; ball <= n; ball++) {
-        int current_pos = 1; // Start at root
+    // Use simulation for small n, mathematical approach for large n
+    if (n <= 1000000) {
+        // Use simulation for small n
+        int num_switches = (1 << (D - 1)) - 1; // Only internal nodes are switches
+        vector<int> switches(num_switches + 1, 0); // 1-indexed
+        vector<int> leaf_counts(num_leaves, 0);
         
-        // Drop the ball through the tree
-        while (current_pos <= num_switches) {
-            if (switches[current_pos] == 0) {
-                // Switch is closed, open it and go left
-                switches[current_pos] = 1;
-                current_pos = current_pos * 2; // Go left
-            } else {
-                // Switch is open, close it and go right
-                switches[current_pos] = 0;
-                current_pos = current_pos * 2 + 1; // Go right
+        for (long long ball = 1; ball <= n; ball++) {
+            int current_pos = 1;
+            
+            while (current_pos <= num_switches) {
+                if (switches[current_pos] == 0) {
+                    switches[current_pos] = 1;
+                    current_pos = current_pos * 2;
+                } else {
+                    switches[current_pos] = 0;
+                    current_pos = current_pos * 2 + 1;
+                }
+            }
+            
+            int leaf_index = current_pos - num_switches - 1;
+            if (leaf_index >= 0 && leaf_index < num_leaves) {
+                leaf_counts[leaf_index]++;
             }
         }
         
-        // Ball has reached a leaf
-        int leaf_index = current_pos - num_switches - 1; // Convert to 0-indexed
-        if (leaf_index >= 0 && leaf_index < num_leaves) {
-            leaf_counts[leaf_index]++;
+        for (int i = 0; i < num_leaves; i++) {
+            leaf_states[i] = leaf_counts[i] % 2;
         }
-    }
-    
-    // Convert leaf counts to states (1 if odd, 0 if even)
-    vector<int> leaf_states(num_leaves);
-    for (int i = 0; i < num_leaves; i++) {
-        leaf_states[i] = leaf_counts[i] % 2;
+    } else {
+        // Use mathematical approach for large n
+        // For each leaf, compute how many balls reach it using the efficient algorithm
+        for (int leaf = 0; leaf < num_leaves; leaf++) {
+            long long balls_to_leaf = 0;
+            long long temp_n = n;
+            int current_pos = 1;
+            int target_leaf = leaf + (1 << (D - 1));
+            
+            // Trace from root to the target leaf
+            int num_switches = (1 << (D - 1)) - 1;
+            while (current_pos <= num_switches) {
+                if (temp_n % 2 == 1) {
+                    if (target_leaf > current_pos * 2 + 1) {
+                        current_pos = current_pos * 2 + 1;
+                        temp_n = (temp_n + 1) / 2;
+                    } else {
+                        current_pos = current_pos * 2;
+                        temp_n = temp_n / 2;
+                    }
+                } else {
+                    if (target_leaf > current_pos * 2) {
+                        current_pos = current_pos * 2 + 1;
+                        temp_n = temp_n / 2;
+                    } else {
+                        current_pos = current_pos * 2;
+                        temp_n = temp_n / 2;
+                    }
+                }
+            }
+            
+            if (current_pos == target_leaf) {
+                balls_to_leaf = temp_n;
+            }
+            
+            leaf_states[leaf] = balls_to_leaf % 2;
+        }
     }
     
     return leaf_states;
